@@ -815,10 +815,10 @@ impl eframe::App for App {
                 ui.add_space(4.0);
             });
 
-        // Log area above the progress bar, resizable (Python: ScrolledText textOutput).
+        // Log area above the progress bar, fixed height (Python: ScrolledText textOutput).
         egui::Panel::bottom("log_panel")
-            .resizable(true)
-            .default_size(200.0)
+            .resizable(false)
+            .exact_size(200.0)
             .frame(
                 egui::Frame::side_top_panel(ui.style())
                     .fill(theme::palette(self.dark).entry_bg)
@@ -997,7 +997,7 @@ fn build_file_tasks(
         tasks.push(Box::new(ReSpawnTask::new(
             input.to_path_buf(),
             temp.clone(),
-            true,
+            false,
         )));
         tasks.push(Box::new(CustomCompressTask {
             input: temp,
@@ -1010,7 +1010,7 @@ fn build_file_tasks(
         tasks.push(Box::new(ReSpawnTask::new(
             input.to_path_buf(),
             temp.clone(),
-            true,
+            false,
         )));
         tasks.push(Box::new(LossyCompressTask {
             input: temp,

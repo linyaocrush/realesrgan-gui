@@ -466,14 +466,12 @@ impl Task for ReSpawnTask {
             image_util::save_lossless(&resized, &self.output)?;
         }
 
-        // Clean up temporary files.
+        // Clean up temporary files. The user's original input file is never removed here.
         if let Some(t) = &preupscale_temp {
             let _ = std::fs::remove_file(t);
         }
-        if scale_pass > 0 {
-            for f in files.iter().take(n - 1) {
-                let _ = std::fs::remove_file(f);
-            }
+        for f in removable_temps(&files, &self.input) {
+            let _ = std::fs::remove_file(f);
         }
         if self.remove_input && work_input != self.input {
             let _ = std::fs::remove_file(&work_input);
@@ -808,4 +806,48 @@ pub fn run_queue(mut tasks: Vec<Box<dyn Task>>, ctx: Arc<TaskCtx>, ignore_error:
         elapsed: started.elapsed().as_secs_f64(),
     });
     let _ = ctx.tx.send(UiMsg::Finished);
+}
+
+/// Paths that may be deleted after a run: every temporary file, never the input file.
+fn removable_temps(files: &[PathBuf], input: &Path) -> Vec<PathBuf> {
+    files
+        .iter()
+        .filter(|f| f.as_path() != input)
+        .cloned()
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::removable_temps;
+    use std::path::PathBuf;
+
+    #[test]
+    fn input_file_is_never_listed_for_deletion() {
+        let input = PathBuf::from(r"C:\images\photo.png");
+        let files = vec![
+            input.clone(),
+            PathBuf::from(r"C:\temp\pass1.png"),
+            PathBuf::from(r"C:\temp\pass2.png"),
+        ];
+        let temps = removable_temps(&files, &input);
+        assert!(!temps.contains(&input));
+        assert_eq!(
+            temps,
+            vec![
+                PathBuf::from(r"C:\temp\pass1.png"),
+                PathBuf::from(r"C:\temp\pass2.png")
+            ]
+        );
+    }
+
+    #[test]
+    fn preupscaled_temp_is_removed_but_source_is_kept() {
+        let input = PathBuf::from(r"C:\images\photo.png");
+        let pre = PathBuf::from(r"C:\temp\pre.png");
+        let files = vec![pre.clone(), PathBuf::from(r"C:\temp\pass1.png")];
+        let temps = removable_temps(&files, &input);
+        assert!(temps.contains(&pre));
+        assert!(!temps.contains(&input));
+    }
 }
